@@ -21,18 +21,27 @@
         <div id="status-bar">
             <span id="status-dot" class="dot"></span>
             <span id="status-text">inicializando...</span>
+            <span id="mic-indicator" class="mic-indicator off">MIC OFF</span>
             <span id="state-text" class="state">idle</span>
         </div>
 
         <div id="log"></div>
 
         <div id="input-bar">
-            <button id="mic-btn" title="ativar microfone (ou bata 2 palmas)">🎤</button>
+            <button id="mic-btn" title="ligar/desligar microfone (ou bata 2 palmas)">🎤</button>
             <input id="text-input" type="text" placeholder="diga algo, Senhor..." autocomplete="off" />
             <button id="send-btn" title="enviar">▶</button>
         </div>
 
-        <div id="hint">/help · /status · /facts · /clear · /reset · /quit</div>
+        <div id="hint">microfone permanece ligado · 2 palmas pra ativar JARVIS · Ctrl+M alterna mic</div>
+    </div>
+
+    <div id="activation-overlay">
+        <div class="activation-content">
+            <h1>J.A.R.V.I.S.</h1>
+            <p class="activation-subtitle">Just A Rather Very Intelligent System</p>
+            <p class="activation-cta">clique para inicializar</p>
+        </div>
     </div>
 
     <script type="module" src="orb.js"></script>

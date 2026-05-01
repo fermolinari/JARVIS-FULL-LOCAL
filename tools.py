@@ -358,6 +358,161 @@ def screenshot(path: str = "") -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
+# --- Web (URLs, YouTube, Spotify) -------------------------------------------
+
+import webbrowser
+import urllib.parse
+
+
+def open_url(url: str) -> dict[str, Any]:
+    """Abre uma URL no navegador padrão. Aceita 'youtube.com' sem protocolo."""
+    if not url:
+        return {"ok": False, "error": "url vazia"}
+    u = url.strip()
+    if not u.startswith(("http://", "https://", "spotify:", "mailto:", "ftp:")):
+        u = "https://" + u
+    try:
+        webbrowser.open(u, new=2)
+        return {"ok": True, "url": u}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def youtube(query: str = "") -> dict[str, Any]:
+    """Abre o YouTube. Se `query` for dado, vai direto pra busca; senão abre a home."""
+    if query:
+        q = urllib.parse.quote_plus(query)
+        url = f"https://www.youtube.com/results?search_query={q}"
+    else:
+        url = "https://www.youtube.com/"
+    return open_url(url)
+
+
+def spotify(query: str = "") -> dict[str, Any]:
+    """Abre o Spotify (app desktop via URI; web player se não houver).
+    Se `query` for dado, faz busca; senão abre a home."""
+    # 1) Tenta o app desktop via protocolo spotify:
+    try:
+        if query:
+            os.startfile(f"spotify:search:{query}")
+        else:
+            os.startfile("spotify:")
+        return {"ok": True, "via": "app", "query": query or None}
+    except (OSError, FileNotFoundError, AttributeError):
+        pass
+    # 2) Fallback: web player
+    if query:
+        q = urllib.parse.quote_plus(query)
+        return open_url(f"https://open.spotify.com/search/{q}")
+    return open_url("https://open.spotify.com/")
+
+
+# --- Volume e mídia ---------------------------------------------------------
+
+# VK codes do Windows pra teclas de mídia. Funcionam em qualquer player ativo.
+_VK = {
+    "vol_up":   0xAF,
+    "vol_down": 0xAE,
+    "vol_mute": 0xAD,
+    "play":     0xB3,  # VK_MEDIA_PLAY_PAUSE
+    "next":     0xB0,
+    "prev":     0xB1,
+    "stop":     0xB2,
+}
+_KEYEVENTF_KEYUP = 0x0002
+
+
+def _press_media(key: str, presses: int = 1) -> bool:
+    """Tenta enviar via Win32 API (mais confiável); fallback pyautogui."""
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+            vk = _VK.get(key)
+            if vk is None:
+                return False
+            for _ in range(max(1, int(presses))):
+                ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(vk, 0, _KEYEVENTF_KEYUP, 0)
+                time.sleep(0.03)
+            return True
+        except Exception:
+            pass
+    # Fallback: pyautogui
+    try:
+        import pyautogui
+        alias = {
+            "vol_up": "volumeup", "vol_down": "volumedown", "vol_mute": "volumemute",
+            "play": "playpause", "next": "nexttrack", "prev": "prevtrack", "stop": "stop",
+        }.get(key)
+        if not alias:
+            return False
+        pyautogui.press(alias, presses=max(1, int(presses)))
+        return True
+    except Exception:
+        return False
+
+
+def volume_up(steps: int = 4) -> dict[str, Any]:
+    """Aumenta o volume do sistema. Cada step ≈ 2%."""
+    steps = max(1, min(int(steps), 25))
+    ok = _press_media("vol_up", steps)
+    return {"ok": ok, "steps": steps}
+
+
+def volume_down(steps: int = 4) -> dict[str, Any]:
+    """Diminui o volume do sistema. Cada step ≈ 2%."""
+    steps = max(1, min(int(steps), 25))
+    ok = _press_media("vol_down", steps)
+    return {"ok": ok, "steps": steps}
+
+
+def volume_mute() -> dict[str, Any]:
+    """Alterna mudo do sistema."""
+    ok = _press_media("vol_mute", 1)
+    return {"ok": ok}
+
+
+def volume_set(percent: int) -> dict[str, Any]:
+    """Define volume absoluto (0-100). Usa pycaw se disponível; senão aproxima por steps."""
+    percent = max(0, min(int(percent), 100))
+    # 1) Tenta pycaw (preciso)
+    try:
+        from ctypes import cast, POINTER
+        from comtypes import CLSCTX_ALL
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume  # type: ignore
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        vol = cast(interface, POINTER(IAudioEndpointVolume))
+        vol.SetMasterVolumeLevelScalar(percent / 100.0, None)
+        return {"ok": True, "percent": percent, "via": "pycaw"}
+    except Exception:
+        pass
+    # 2) Fallback aproximado: zera e sobe N steps (~2% cada)
+    _press_media("vol_down", 50)  # zera
+    _press_media("vol_up", percent // 2)
+    return {"ok": True, "percent_approx": percent, "via": "steps"}
+
+
+def media_play_pause() -> dict[str, Any]:
+    """Play/pause do player ativo (Spotify, YouTube, mídia do Windows)."""
+    return {"ok": _press_media("play", 1)}
+
+
+def media_next() -> dict[str, Any]:
+    """Próxima faixa do player ativo."""
+    return {"ok": _press_media("next", 1)}
+
+
+def media_prev() -> dict[str, Any]:
+    """Faixa anterior do player ativo."""
+    return {"ok": _press_media("prev", 1)}
+
+
+def media_stop() -> dict[str, Any]:
+    """Para a reprodução."""
+    return {"ok": _press_media("stop", 1)}
+
+
 # --- Schemas para tool-calling ----------------------------------------------
 
 def _fn(name: str, desc: str, props: dict | None = None, required: list[str] | None = None) -> dict:
@@ -427,6 +582,27 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         {"text": {"type": "string"}}, ["text"]),
     _fn("screenshot", "Captura a tela atual.",
         {"path": {"type": "string", "default": ""}}),
+
+    # Web
+    _fn("open_url", "Abre uma URL no navegador padrão (aceita 'youtube.com' sem protocolo).",
+        {"url": {"type": "string"}}, ["url"]),
+    _fn("youtube", "Abre o YouTube. Use `query` pra buscar um vídeo (ex: 'AC/DC Thunderstruck'). Sem query, abre a home.",
+        {"query": {"type": "string"}}),
+    _fn("spotify", "Abre o Spotify. Use `query` pra buscar uma música, álbum ou artista (ex: 'AC/DC'). Sem query, abre o app.",
+        {"query": {"type": "string"}}),
+
+    # Volume e mídia
+    _fn("volume_up", "Aumenta o volume do sistema. Cada step ≈ 2%. Padrão: 4 steps.",
+        {"steps": {"type": "integer", "default": 4}}),
+    _fn("volume_down", "Diminui o volume do sistema. Cada step ≈ 2%. Padrão: 4 steps.",
+        {"steps": {"type": "integer", "default": 4}}),
+    _fn("volume_mute", "Alterna mudo do sistema."),
+    _fn("volume_set", "Define o volume absoluto, de 0 a 100.",
+        {"percent": {"type": "integer"}}, ["percent"]),
+    _fn("media_play_pause", "Play/pause da mídia ativa (Spotify, YouTube, qualquer player)."),
+    _fn("media_next", "Próxima faixa da mídia ativa."),
+    _fn("media_prev", "Faixa anterior da mídia ativa."),
+    _fn("media_stop", "Para a reprodução da mídia ativa."),
 ]
 
 
@@ -464,17 +640,100 @@ TOOL_REGISTRY: dict[str, Callable[..., Any]] = {
     "clipboard_get": clipboard_get,
     "clipboard_set": clipboard_set,
     "screenshot": screenshot,
+    # Web
+    "open_url": open_url,
+    "youtube": youtube,
+    "spotify": spotify,
+    # Volume e mídia
+    "volume_up": volume_up,
+    "volume_down": volume_down,
+    "volume_mute": volume_mute,
+    "volume_set": volume_set,
+    "media_play_pause": media_play_pause,
+    "media_next": media_next,
+    "media_prev": media_prev,
+    "media_stop": media_stop,
 }
+
+
+# Sinônimos de parâmetros — modelos pequenos (qwen3.5:4b) às vezes inventam.
+# Mapeia 'nome inventado pelo modelo' -> 'nome real do parâmetro'.
+PARAM_ALIASES: dict[str, list[str]] = {
+    "name":     ["app", "application", "program", "alias", "target", "appname"],
+    "title":    ["window", "window_title", "windowname", "name"],
+    "path":     ["file", "filename", "filepath", "file_path"],
+    "text":     ["message", "string", "content", "input"],
+    "term":     ["query", "search", "keyword", "q"],
+    "key":      ["keyname", "button"],
+    "keys":     ["combo", "combination", "shortcut"],
+    "command":  ["cmd", "shell", "exec"],
+    "fact":     ["info", "value", "memory"],
+    "title_substring": ["title", "name", "substring"],
+    "id":       ["uuid", "note_id", "event_id"],
+    "when":     ["date", "time", "datetime", "data"],
+    "what":     ["title", "subject", "event"],
+}
+
+
+def _normalize_args(fn, args: dict[str, Any]) -> dict[str, Any]:
+    """Reescreve args com nomes sinônimos pra os nomes reais do parâmetro,
+    e descarta kwargs desconhecidos pra não quebrar."""
+    import inspect
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return args or {}
+    params = sig.parameters
+    accepts_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+    valid_names = {n for n, p in params.items() if p.kind != inspect.Parameter.VAR_KEYWORD}
+
+    out: dict[str, Any] = {}
+    leftovers: dict[str, Any] = {}
+    for k, v in (args or {}).items():
+        if k in valid_names:
+            out[k] = v
+            continue
+        # Tenta achar o parâmetro real cujo apelido bate com k
+        remapped = None
+        for real, aliases in PARAM_ALIASES.items():
+            if real in valid_names and k in aliases:
+                remapped = real
+                break
+        if remapped and remapped not in out:
+            out[remapped] = v
+        else:
+            leftovers[k] = v
+
+    # Se sobrou exatamente 1 valor leftover e exatamente 1 parâmetro obrigatório
+    # ainda não preenchido, joga ele lá (último recurso)
+    required_missing = [
+        n for n, p in params.items()
+        if n not in out
+        and p.kind not in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+        and p.default is inspect.Parameter.empty
+    ]
+    if len(leftovers) == 1 and len(required_missing) == 1:
+        out[required_missing[0]] = next(iter(leftovers.values()))
+    elif accepts_kwargs:
+        out.update(leftovers)
+    # caso contrário, descarta silenciosamente os leftovers (vale mais executar
+    # com defaults do que quebrar a turn inteira)
+
+    return out
 
 
 def call_tool(name: str, args: dict[str, Any]) -> str:
     fn = TOOL_REGISTRY.get(name)
     if fn is None:
         return json.dumps({"error": f"ferramenta desconhecida: {name}"}, ensure_ascii=False)
+    norm_args = _normalize_args(fn, args or {})
     try:
-        result = fn(**(args or {}))
+        result = fn(**norm_args)
     except TypeError as e:
-        return json.dumps({"error": f"argumentos inválidos: {e}"}, ensure_ascii=False)
+        return json.dumps(
+            {"error": f"argumentos inválidos: {e}", "received": list((args or {}).keys()), "normalized": list(norm_args.keys())},
+            ensure_ascii=False,
+        )
     except Exception as e:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
     return json.dumps(result, ensure_ascii=False, default=str)

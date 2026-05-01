@@ -24,12 +24,15 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import requests
+
 from audio_listener import ClapListener
 from brain import Brain
 from config import (
     ASSISTANT_NAME,
     CLAP_ENABLED,
     FRONTEND_DIR,
+    OLLAMA_HOST,
     USER_TITLE,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -106,11 +109,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send_text(self, code: int, body: str, content_type: str = "text/plain; charset=utf-8") -> None:
         data = body.encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            pass  # cliente desconectou — sem drama
 
     def _send_json(self, code: int, payload: Any) -> None:
         body = json.dumps(payload, ensure_ascii=False)
@@ -195,7 +201,12 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0") or "0")
         body = self.rfile.read(length) if length else b""
         try:
-            payload = json.loads(body.decode("utf-8")) if body else {}
+            text = body.decode("utf-8") if body else ""
+        except UnicodeDecodeError:
+            # cliente mandou em latin-1/cp1252 (curl bash no Windows, etc.)
+            text = body.decode("utf-8", errors="replace")
+        try:
+            payload = json.loads(text) if text else {}
         except json.JSONDecodeError:
             payload = {}
 
@@ -217,7 +228,73 @@ class Handler(BaseHTTPRequestHandler):
         self._send_text(404, "not found")
 
 
+def _ollama_alive(timeout: float = 1.5) -> bool:
+    try:
+        r = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=timeout)
+        return r.ok
+    except Exception:
+        return False
+
+
+def _ollama_executable() -> str | None:
+    """Localiza ollama.exe no Windows ou ollama no PATH."""
+    exe = shutil.which("ollama")
+    if exe:
+        return exe
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA", "")
+        candidates = [
+            rf"{local}\Programs\Ollama\ollama.exe",
+            r"C:\Program Files\Ollama\ollama.exe",
+            r"C:\Program Files (x86)\Ollama\ollama.exe",
+        ]
+        for p in candidates:
+            if os.path.isfile(p):
+                return p
+    return None
+
+
+def _ensure_ollama_running(wait_s: float = 12.0) -> bool:
+    """Se Ollama não estiver rodando, tenta subir 'ollama serve' em background."""
+    if _ollama_alive():
+        return True
+    exe = _ollama_executable()
+    if not exe:
+        print(f"[{ASSISTANT_NAME}] Ollama não encontrado no sistema. Instale: https://ollama.com/download")
+        return False
+    print(f"[{ASSISTANT_NAME}] Ollama offline — subindo 'ollama serve'...")
+    try:
+        creationflags = 0
+        if sys.platform == "win32":
+            # CREATE_NO_WINDOW = 0x08000000 — não abre prompt extra no Windows
+            creationflags = 0x08000000
+        subprocess.Popen(
+            [exe, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            creationflags=creationflags,
+            close_fds=True,
+        )
+    except Exception as e:
+        print(f"[{ASSISTANT_NAME}] falha ao iniciar Ollama: {e}")
+        return False
+
+    # Espera ficar online
+    deadline = time.time() + wait_s
+    while time.time() < deadline:
+        if _ollama_alive(timeout=1.0):
+            print(f"[{ASSISTANT_NAME}] Ollama online.")
+            return True
+        time.sleep(0.5)
+    print(f"[{ASSISTANT_NAME}] Ollama não respondeu em {wait_s}s — seguindo mesmo assim.")
+    return False
+
+
 def _free_port() -> int:
+    forced = os.environ.get("JARVIS_PORT")
+    if forced:
+        return int(forced)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
@@ -261,6 +338,9 @@ def _open_in_app_window(url: str) -> bool:
 
 
 def main() -> int:
+    # Garante que o Ollama está no ar antes de qualquer coisa
+    _ensure_ollama_running()
+
     port = _free_port()
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True
@@ -282,7 +362,9 @@ def main() -> int:
         else:
             print(f"[{ASSISTANT_NAME}] sounddevice indisponível — clap detector desativado.")
 
-    if not _open_in_app_window(url):
+    if os.environ.get("JARVIS_NO_BROWSER") == "1":
+        print(f"[{ASSISTANT_NAME}] navegador desativado (JARVIS_NO_BROWSER=1).")
+    elif not _open_in_app_window(url):
         # Último recurso: abre no navegador padrão
         import webbrowser
         webbrowser.open(url)
