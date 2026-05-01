@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S.</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <canvas id="orb-canvas"></canvas>
+
+    <div id="ui">
+        <div id="status-bar">
+            <span id="status-dot" class="dot"></span>
+            <span id="status-text">inicializando...</span>
+            <span id="state-text" class="state">idle</span>
+        </div>
+
+        <div id="log"></div>
+
+        <div id="input-bar">
+            <button id="mic-btn" title="ativar microfone (ou bata 2 palmas)">🎤</button>
+            <input id="text-input" type="text" placeholder="diga algo, Senhor..." autocomplete="off" />
+            <button id="send-btn" title="enviar">▶</button>
+        </div>
+
+        <div id="hint">/help · /status · /facts · /clear · /reset · /quit</div>
+    </div>
+
+    <script type="module" src="orb.js"></script>
+    <script type="module" src="voice.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

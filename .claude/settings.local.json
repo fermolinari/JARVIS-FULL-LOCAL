@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile config.py memory.py tools.py brain.py ui.py main.py)",
+      "Bash(python -c \"import rich, ollama, psutil, requests; print\\('deps OK'\\)\")",
+      "Bash(curl -s --max-time 3 http://localhost:11434/api/tags)",
+      "Bash(echo \"---exit: $?---\")",
+      "Bash(pip install *)",
+      "Bash(python -c \"import rich, ollama, psutil, requests; print\\('deps OK:', rich.__version__, ollama.__version__, psutil.__version__\\)\")",
+      "Bash(python -c \"from rich.console import Console; import ollama, psutil, requests; print\\('deps OK'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(JARVIS_MODEL=qwen3.5:4b JARVIS_NUM_CTX=2048 PYTHONIOENCODING=utf-8 printf 'Bom dia JARVIS\\\\n/status\\\\nQuanto de RAM est\\\\xc3\\\\xa1 livre?\\\\n/quit\\\\n')",
+      "Bash(python main.py)",
+      "Bash(JARVIS_MODEL=qwen3.5:4b JARVIS_NUM_CTX=2048 PYTHONIOENCODING=utf-8 printf 'Bom dia JARVIS, em uma frase\\\\n/quit\\\\n')",
+      "Bash(export JARVIS_MODEL=qwen3.5:4b)",
+      "Bash(export JARVIS_NUM_CTX=2048)",
+      "Bash(export PYTHONIOENCODING=utf-8)",
+      "Bash(nvidia-smi --query-gpu=name,memory.total,memory.used,driver_version --format=csv)",
+      "Bash(tasklist)",
+      "Bash(pip list *)",
+      "Bash(python -c \"import sounddevice, numpy, pyautogui, pygetwindow, pyperclip; print\\('all OK'\\)\")",
+      "Bash(python -m py_compile config.py memory.py notes.py audio_listener.py tools.py brain.py main.py)",
+      "Bash(python -c \"import main; print\\('imports OK'\\)\")",
+      "Bash(tasklist /FI \"IMAGENAME eq python.exe\")",
+      "Bash(netstat -ano -p tcp)"
+    ]
+  }
+}
