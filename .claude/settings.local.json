@@ -56,7 +56,17 @@
       "Bash(python -c \"from memory import Memory; m = Memory\\(\\); print\\(dir\\(m\\)\\)\")",
       "Bash(taskkill //IM Spotify.exe //F)",
       "PowerShell(& \"C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\JARVIS-FULL-LOCAL\\\\.claude\\\\worktrees\\\\condescending-swanson-cdd7e5\\\\install_shortcut.ps1\")",
-      "PowerShell($root = \"C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\JARVIS-FULL-LOCAL\\\\.claude\\\\worktrees\\\\condescending-swanson-cdd7e5\"; $target = Join-Path $root 'start.bat'; if \\(-not \\(Test-Path $target\\)\\) { Write-Output \"ERRO: $target nao encontrado\"; exit 1 }; $desktop = [Environment]::GetFolderPath\\('Desktop'\\); $lnkPath = Join-Path $desktop 'JARVIS.lnk'; $shell = New-Object -ComObject WScript.Shell; $sc = $shell.CreateShortcut\\($lnkPath\\); $sc.TargetPath = $target; $sc.WorkingDirectory = $root; $sc.WindowStyle = 7; $sc.Description = 'J.A.R.V.I.S. - assistente local'; $ico = Join-Path $root 'frontend\\\\jarvis.ico'; if \\(Test-Path $ico\\) { $sc.IconLocation = \"$ico,0\" } else { $sc.IconLocation = \"$env:SystemRoot\\\\System32\\\\shell32.dll,13\" }; $sc.Save\\(\\); Write-Output \"Atalho criado em: $lnkPath\"; Test-Path $lnkPath)"
+      "PowerShell($root = \"C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\JARVIS-FULL-LOCAL\\\\.claude\\\\worktrees\\\\condescending-swanson-cdd7e5\"; $target = Join-Path $root 'start.bat'; if \\(-not \\(Test-Path $target\\)\\) { Write-Output \"ERRO: $target nao encontrado\"; exit 1 }; $desktop = [Environment]::GetFolderPath\\('Desktop'\\); $lnkPath = Join-Path $desktop 'JARVIS.lnk'; $shell = New-Object -ComObject WScript.Shell; $sc = $shell.CreateShortcut\\($lnkPath\\); $sc.TargetPath = $target; $sc.WorkingDirectory = $root; $sc.WindowStyle = 7; $sc.Description = 'J.A.R.V.I.S. - assistente local'; $ico = Join-Path $root 'frontend\\\\jarvis.ico'; if \\(Test-Path $ico\\) { $sc.IconLocation = \"$ico,0\" } else { $sc.IconLocation = \"$env:SystemRoot\\\\System32\\\\shell32.dll,13\" }; $sc.Save\\(\\); Write-Output \"Atalho criado em: $lnkPath\"; Test-Path $lnkPath)",
+      "Bash(python -c \"import main; import json; print\\(json.dumps\\(main._collect_stats\\(\\), indent=2, ensure_ascii=False\\)[:1500]\\)\")",
+      "Bash(JARVIS_NO_BROWSER=1 JARVIS_PORT=18421 python main.py)",
+      "Bash(curl -s http://127.0.0.1:18421/api/health)",
+      "Bash(curl -s http://127.0.0.1:18421/api/stats)",
+      "Bash(curl -s http://127.0.0.1:18421/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}b\\\\n\" http://127.0.0.1:18421/style.css)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}b\\\\n\" http://127.0.0.1:18421/app.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}b\\\\n\" http://127.0.0.1:18421/voice.js)",
+      "Bash(timeout 3 curl -sN http://127.0.0.1:18421/api/events)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 18421 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"killed\")"
     ]
   }
 }

@@ -1,51 +1,247 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.A.R.V.I.S.</title>
-    <link rel="stylesheet" href="style.css">
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
-        }
-    }
-    </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S — Interface</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="orb-canvas"></canvas>
 
-    <div id="ui">
-        <div id="status-bar">
-            <span id="status-dot" class="dot"></span>
-            <span id="status-text">inicializando...</span>
-            <span id="mic-indicator" class="mic-indicator off">MIC OFF</span>
-            <span id="state-text" class="state">idle</span>
-        </div>
+<canvas id="particle-canvas"></canvas>
+<div class="grain"></div>
+<div class="corner-tl"></div>
+<div class="corner-tr"></div>
+<div class="corner-bl"></div>
+<div class="corner-br"></div>
 
-        <div id="log"></div>
+<div class="hud">
 
-        <div id="input-bar">
-            <button id="mic-btn" title="ligar/desligar microfone (ou bata 2 palmas)">🎤</button>
-            <input id="text-input" type="text" placeholder="diga algo, Senhor..." autocomplete="off" />
-            <button id="send-btn" title="enviar">▶</button>
-        </div>
+  <!-- ── TOP BAR ── -->
+  <header class="topbar">
+    <span class="topbar-brand">J . A . R . V . I . S</span>
+    <div class="topbar-status">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="status-label" id="status-label">Inicializando</span>
+      <div class="status-dot" id="ai-dot" style="animation-delay:0.8s"></div>
+      <span class="status-label" id="state-label">idle</span>
+      <div class="status-dot" id="mic-dot" style="animation-delay:1.6s"></div>
+      <span class="status-label" id="mic-label">MIC OFF</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="hud-btn" id="mic-toggle" title="Ligar/desligar microfone (Ctrl+M)">MIC</button>
+      <button class="hud-btn" id="chat-toggle" title="Mostrar/ocultar console de chat">CHAT</button>
+      <span id="clock">--:--:--</span>
+    </div>
+  </header>
 
-        <div id="hint">microfone permanece ligado · 2 palmas pra ativar JARVIS · Ctrl+M alterna mic</div>
+  <!-- ── LEFT PANEL ── -->
+  <aside class="left-panel">
+
+    <div class="panel-card">
+      <div class="card-title">Recursos do Sistema</div>
+      <div class="metric-row">
+        <span class="metric-label">CPU</span>
+        <span class="metric-value" id="cpu-val">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="cpu-bar" style="width:0%"></div></div>
+
+      <div class="metric-row">
+        <span class="metric-label">Memória</span>
+        <span class="metric-value" id="mem-val">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="mem-bar" style="width:0%"></div></div>
+
+      <div class="metric-row">
+        <span class="metric-label">Disco</span>
+        <span class="metric-value" id="disk-val">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="disk-bar" style="width:0%"></div></div>
+
+      <div class="metric-row">
+        <span class="metric-label">Rede ↓</span>
+        <span class="metric-value" id="net-val">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="net-bar" style="width:0%"></div></div>
     </div>
 
-    <div id="activation-overlay">
-        <div class="activation-content">
-            <h1>J.A.R.V.I.S.</h1>
-            <p class="activation-subtitle">Just A Rather Very Intelligent System</p>
-            <p class="activation-cta">clique para inicializar</p>
-        </div>
+    <div class="panel-card">
+      <div class="card-title">Temperatura</div>
+      <div id="temps-list">
+        <div class="metric-row"><span class="metric-label">Aguardando sensores…</span></div>
+      </div>
     </div>
 
-    <script type="module" src="orb.js"></script>
-    <script type="module" src="voice.js"></script>
-    <script type="module" src="app.js"></script>
+    <div class="panel-card" style="flex:1">
+      <div class="card-title">Atividade</div>
+      <div class="waveform" id="waveform"></div>
+    </div>
+
+    <div class="panel-card">
+      <div class="card-title">Log de Eventos</div>
+      <div id="log-lines">
+        <div class="log-line active">SYS: Inicializando interface…</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── CENTER ── -->
+  <main class="center">
+    <div class="arc-stage" id="arc-stage">
+
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+      <div class="ring ring-3"></div>
+      <div class="ring ring-4"></div>
+      <div class="ring ring-5"></div>
+
+      <svg class="ring ring-2-ticks" viewBox="0 0 100 100" style="border:none;background:transparent;">
+        <g id="ticks"></g>
+      </svg>
+
+      <div class="orbit-dot" id="od-a" style="width:8px;height:8px;position:absolute;top:50%;left:50%;"></div>
+      <div class="orbit-dot" id="od-b" style="width:5px;height:5px;position:absolute;top:50%;left:50%;opacity:0.7;"></div>
+      <div class="orbit-dot" id="od-c" style="width:6px;height:6px;position:absolute;top:50%;left:50%;opacity:0.8;"></div>
+
+      <div class="scan-line"></div>
+
+      <div class="inner-glow" id="inner-glow"></div>
+      <div class="arc-core" id="arc-core"></div>
+
+      <div class="hud-label" id="arc-label" data-val="ATIVO" style="bottom:8%;left:50%;transform:translateX(-50%);text-align:center;">Estado</div>
+
+    </div>
+
+    <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" id="crosshair-svg"></svg>
+  </main>
+
+  <!-- ── RIGHT PANEL ── -->
+  <aside class="right-panel">
+
+    <div class="panel-card">
+      <div class="card-title">Processos Ativos</div>
+      <div id="proc-list">
+        <div class="metric-row"><span class="metric-label">Carregando…</span></div>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <div class="card-title">Radar</div>
+      <div class="mini-radar">
+        <svg viewBox="0 0 100 100" style="overflow:visible">
+          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,160,30,0.12)" stroke-width="0.5"/>
+          <circle cx="50" cy="50" r="32" fill="none" stroke="rgba(255,160,30,0.18)" stroke-width="0.5"/>
+          <circle cx="50" cy="50" r="18" fill="none" stroke="rgba(255,160,30,0.25)" stroke-width="0.5"/>
+          <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(255,160,30,0.15)" stroke-width="0.5"/>
+          <line x1="50" y1="5" x2="50" y2="95" stroke="rgba(255,160,30,0.15)" stroke-width="0.5"/>
+          <path id="radar-sweep" d="M50,50 L95,50 A45,45 0 0,0 50,5 Z" fill="url(#rsweep)" opacity="0.6">
+            <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="4s" repeatCount="indefinite"/>
+          </path>
+          <defs>
+            <radialGradient id="rsweep" cx="0%" cy="50%" r="100%">
+              <stop offset="0%" stop-color="rgba(255,160,30,0.5)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          <circle cx="38" cy="28" r="2" fill="var(--gold-glow)" opacity="0.9"><animate attributeName="opacity" values="0.9;0.2;0.9" dur="2.1s" repeatCount="indefinite"/></circle>
+          <circle cx="68" cy="60" r="1.5" fill="var(--gold-glow)" opacity="0.7"><animate attributeName="opacity" values="0.7;0.1;0.7" dur="1.5s" repeatCount="indefinite"/></circle>
+          <circle cx="55" cy="78" r="1.8" fill="var(--amber)" opacity="0.8"><animate attributeName="opacity" values="0.8;0.2;0.8" dur="3s" repeatCount="indefinite"/></circle>
+        </svg>
+      </div>
+    </div>
+
+    <div class="panel-card" style="flex:1">
+      <div class="card-title">Sistema</div>
+      <div class="metric-row">
+        <span class="metric-label">Plataforma</span>
+        <span class="metric-value" id="sys-platform">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">CPUs</span>
+        <span class="metric-value" id="sys-cpus">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">RAM Total</span>
+        <span class="metric-value" id="sys-ram">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Boot</span>
+        <span class="metric-value" id="sys-boot">—</span>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <div class="card-title">Última Atividade IA</div>
+      <div id="ai-log">
+        <div class="log-line active">Aguardando comandos…</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── BOTTOM BAR ── -->
+  <footer class="bottombar">
+    <div class="bottom-item">
+      <span class="bottom-label">Uptime</span>
+      <span class="bottom-value" id="uptime">00:00:00</span>
+    </div>
+    <div class="divider-v"></div>
+    <div class="bottom-item">
+      <span class="bottom-label">Modelo IA</span>
+      <span class="bottom-value" id="model-name">—</span>
+    </div>
+    <div class="divider-v"></div>
+    <div class="bottom-item">
+      <span class="bottom-label">Memória IA</span>
+      <span class="bottom-value" id="ai-mem">—</span>
+    </div>
+    <div class="divider-v"></div>
+    <div class="bottom-center" id="bottom-center">Sistema Autônomo Inteligente · 2 palmas pra ativar</div>
+    <div class="divider-v"></div>
+    <div class="bottom-item" style="text-align:right">
+      <span class="bottom-label">Data</span>
+      <span class="bottom-value" id="date-val">—</span>
+    </div>
+    <div class="divider-v"></div>
+    <div class="bottom-item" style="text-align:right">
+      <span class="bottom-label">Localização</span>
+      <span class="bottom-value">Local</span>
+    </div>
+    <div class="divider-v"></div>
+    <div class="bottom-item" style="text-align:right">
+      <span class="bottom-label">Segurança</span>
+      <span class="bottom-value" style="color:oklch(75% 0.20 145)">OK</span>
+    </div>
+  </footer>
+
+</div>
+
+<!-- ── CHAT OVERLAY (oculto por padrão; alterna no botão CHAT) ── -->
+<div id="chat-panel" class="chat-panel hidden">
+  <div class="chat-header">
+    <span class="chat-title">CONSOLE — TRANSCRIÇÃO</span>
+    <button class="chat-close" id="chat-close" title="Ocultar (Ctrl+L)">×</button>
+  </div>
+  <div id="log" class="chat-log"></div>
+  <div class="chat-input-bar">
+    <button id="mic-btn" title="ligar/desligar microfone">🎤</button>
+    <input id="text-input" type="text" placeholder="diga algo, Senhor..." autocomplete="off" />
+    <button id="send-btn" title="enviar">▶</button>
+  </div>
+</div>
+
+<!-- ── ATIVAÇÃO ── -->
+<div id="activation-overlay">
+  <div class="activation-content">
+    <h1>J.A.R.V.I.S.</h1>
+    <p class="activation-subtitle">Just A Rather Very Intelligent System</p>
+    <p class="activation-cta">clique para inicializar</p>
+  </div>
+</div>
+
+<script type="module" src="voice.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

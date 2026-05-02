@@ -32,6 +32,7 @@ from config import (
     ASSISTANT_NAME,
     CLAP_ENABLED,
     FRONTEND_DIR,
+    MODEL_NAME,
     OLLAMA_HOST,
     USER_TITLE,
     WINDOW_HEIGHT,
@@ -39,6 +40,7 @@ from config import (
 )
 from memory import Memory
 from notes import NotesStore
+from tools import get_system_status, list_processes
 
 MEMORY = Memory()
 NOTES = NotesStore()
@@ -87,6 +89,69 @@ class EventBus:
 
 
 BUS = EventBus()
+
+
+_LAST_NET = {"t": 0.0, "rx": 0, "tx": 0}
+
+
+def _collect_stats() -> dict[str, Any]:
+    """Snapshot ao vivo de CPU/RAM/disco/processos pra alimentar o HUD."""
+    import psutil  # local pra reduzir latência de import na primeira req
+
+    try:
+        sysinfo = get_system_status()
+    except Exception as e:
+        sysinfo = {"error": str(e)}
+
+    # taxa de rede (KB/s) — diff entre chamadas
+    rx_kbps = tx_kbps = 0.0
+    try:
+        net = psutil.net_io_counters()
+        now = time.time()
+        last = _LAST_NET.copy()
+        if last["t"] > 0:
+            dt = max(0.001, now - last["t"])
+            rx_kbps = max(0.0, (net.bytes_recv - last["rx"]) / dt / 1024.0)
+            tx_kbps = max(0.0, (net.bytes_sent - last["tx"]) / dt / 1024.0)
+        _LAST_NET["t"] = now
+        _LAST_NET["rx"] = net.bytes_recv
+        _LAST_NET["tx"] = net.bytes_sent
+    except Exception:
+        pass
+
+    # temperaturas: tenta sensores; se não, devolve None
+    temps: dict[str, float] = {}
+    try:
+        sensors = getattr(psutil, "sensors_temperatures", lambda: {})() or {}
+        for label, entries in sensors.items():
+            for i, e in enumerate(entries[:4]):
+                if e.current:
+                    temps[f"{label}-{i}"] = round(float(e.current), 1)
+    except Exception:
+        pass
+
+    # top processos
+    try:
+        procs = list_processes(top_n=6)
+    except Exception:
+        procs = []
+
+    return {
+        "system": sysinfo,
+        "net": {"rx_kbps": round(rx_kbps, 1), "tx_kbps": round(tx_kbps, 1)},
+        "temps": temps,
+        "processes": [
+            {
+                "pid": p.get("pid"),
+                "name": p.get("name") or "—",
+                "cpu": round(float(p.get("cpu_percent") or 0.0), 1),
+                "mem": round(float(p.get("memory_percent") or 0.0), 1),
+            }
+            for p in procs
+        ],
+        "model": MODEL_NAME,
+        "ts": time.time(),
+    }
 
 
 def process_turn(text: str) -> None:
@@ -191,6 +256,9 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/api/health":
             ok, detail = BRAIN.health_check()
             self._send_json(200, {"ok": ok, "message": detail})
+            return
+        if url.path == "/api/stats":
+            self._send_json(200, _collect_stats())
             return
         # Estáticos
         rel = url.path if url.path != "/" else "/index.html"
