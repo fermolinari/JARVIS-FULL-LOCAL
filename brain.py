@@ -169,19 +169,13 @@ class Brain:
 
     def _exec_intent(self, tool_name: str, args: dict, confirm_msg: str) -> Iterator[dict]:
         """Executa uma tool diretamente e emite os eventos esperados."""
-        self.memory.add_message("user", "")  # placeholder — já adicionado em think()
-        # Remove o placeholder pra não bagunçar memória (vamos re-adicionar lógica certa)
-        self.memory.history.pop()
-
         yield {"type": "tool_call", "name": tool_name, "args": args}
         result = call_tool(tool_name, args)
         yield {"type": "tool_result", "name": tool_name, "result": result}
-        # Resposta-template streamada (palavra a palavra pra UI ficar viva)
         yield {"type": "assistant_start"}
         for ch in confirm_msg:
             yield {"type": "token", "text": ch}
         yield {"type": "assistant_end", "full_text": confirm_msg}
-        # Adiciona à memória pra contexto futuro
         self.memory.add_message("assistant", confirm_msg)
 
     def _exec_spotify_play(self, query: str) -> Iterator[dict]:
